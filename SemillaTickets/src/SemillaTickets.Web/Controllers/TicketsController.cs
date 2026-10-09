@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc;
+using SemillaTickets.Web.Helpers;
 using SemillaTickets.Web.Models;
 using SemillaTickets.Web.Services;
 
@@ -64,5 +65,38 @@ public class TicketsController : Controller
         }
 
         return RedirectToAction(nameof(Index));
+    }
+
+    /// <summary>
+    /// Cambia el estado de un ticket. Se llama por Ajax desde el listado y devuelve JSON.
+    /// </summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public IActionResult CambiarEstado(int id, string estado)
+    {
+        try
+        {
+            var ahora = DateTime.Now;
+            var ticket = _tickets.CambiarEstado(id, estado, ahora);
+            if (ticket == null)
+            {
+                return NotFound(new { error = "El ticket no existe." });
+            }
+
+            return Json(new
+            {
+                estado = ticket.Estado,
+                fechaCierre = ticket.FechaCierre?.ToString("dd/MM/yyyy HH:mm"),
+                slaVencido = SlaHelper.VenceSla(ticket, ahora)
+            });
+        }
+        catch (ValidationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 }

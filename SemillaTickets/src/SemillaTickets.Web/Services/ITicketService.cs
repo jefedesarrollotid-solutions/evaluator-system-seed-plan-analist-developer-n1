@@ -23,4 +23,13 @@ public interface ITicketService
     /// Lanza <see cref="System.ComponentModel.DataAnnotations.ValidationException"/> si los datos no son válidos.
     /// </summary>
     Ticket? Actualizar(int id, Ticket datos);
+
+    /// <summary>
+    /// Cambia el estado del ticket. Reglas:
+    /// un ticket Cerrado no puede cambiar de estado (lanza <see cref="InvalidOperationException"/>);
+    /// al pasar a Resuelto o Cerrado se registra FechaCierre con <paramref name="ahora"/>.
+    /// Devuelve null si el ticket no existe.
+    /// Lanza <see cref="System.ComponentModel.DataAnnotations.ValidationException"/> si el estado no es válido.
+    /// </summary>
+    Ticket? CambiarEstado(int id, string nuevoEstado, DateTime ahora);
 }

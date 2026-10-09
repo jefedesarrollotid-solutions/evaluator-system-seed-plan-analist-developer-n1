@@ -34,6 +34,11 @@
     </div>
 </form>
 
+@* Token antifalsificación que site.js envía en la cabecera de la petición Ajax. *@
+@Html.AntiForgeryToken()
+
+<div id="mensaje-estado" class="alert d-none" role="alert"></div>
+
 <table class="table table-sm table-hover align-middle">
     <thead class="table-light">
         <tr>
@@ -48,7 +53,7 @@
             <th></th>
         </tr>
     </thead>
-    <tbody>
+    <tbody id="tabla-tickets" data-url-cambiar-estado="@Url.Action("CambiarEstado")">
         @if (Model.Tickets.Count == 0)
         {
             <tr>
@@ -61,11 +66,22 @@
                 <td>@t.Id</td>
                 <td>@t.Titulo</td>
                 <td>@t.Prioridad</td>
-                <td>@t.Estado</td>
+                <td>
+                    <select class="form-select form-select-sm cambiar-estado"
+                            data-id="@t.Id"
+                            data-estado-actual="@t.Estado"
+                            aria-label="Cambiar estado del ticket @t.Id"
+                            disabled="@(t.Estado == Estados.Cerrado)">
+                        @foreach (var e in Estados.Todos)
+                        {
+                            <option value="@e" selected="@(e == t.Estado)">@e</option>
+                        }
+                    </select>
+                </td>
                 <td>@(t.Responsable ?? "—")</td>
                 <td>@t.FechaCreacion.ToString("dd/MM/yyyy HH:mm")</td>
-                <td>@(t.FechaCierre?.ToString("dd/MM/yyyy HH:mm") ?? "—")</td>
-                <td>@(SlaHelper.VenceSla(t, Model.Ahora) ? "Sí" : "No")</td>
+                <td class="fecha-cierre">@(t.FechaCierre?.ToString("dd/MM/yyyy HH:mm") ?? "—")</td>
+                <td class="sla-vencido">@(SlaHelper.VenceSla(t, Model.Ahora) ? "Sí" : "No")</td>
                 <td><a asp-action="Edit" asp-route-id="@t.Id" class="btn btn-sm btn-outline-secondary">Editar</a></td>
             </tr>
         }

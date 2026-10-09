@@ -64,6 +64,42 @@ public class TicketService : ITicketService
         return ticket;
     }
 
+    public Ticket? CambiarEstado(int id, string nuevoEstado, DateTime ahora)
+    {
+        if (!Estados.Todos.Contains(nuevoEstado))
+        {
+            throw new ValidationException($"El estado '{nuevoEstado}' no es válido.");
+        }
+
+        var ticket = _db.Tickets.Find(id);
+        if (ticket == null)
+        {
+            return null;
+        }
+
+        if (ticket.Estado == Estados.Cerrado)
+        {
+            throw new InvalidOperationException("Un ticket cerrado no puede cambiar de estado.");
+        }
+
+        ticket.Estado = nuevoEstado;
+
+        if (nuevoEstado == Estados.Resuelto || nuevoEstado == Estados.Cerrado)
+        {
+            // Se registra la fecha de cierre; si ya estaba resuelto se conserva la fecha original de resolución.
+            ticket.FechaCierre ??= ahora;
+        }
+        else
+        {
+            // Al reabrir (Abierto / En proceso) el ticket deja de tener fecha de cierre.
+            ticket.FechaCierre = null;
+        }
+
+        _db.SaveChanges();
+
+        return ticket;
+    }
+
     /// <summary>
     /// Aplica las Data Annotations del modelo también en la capa de servicio,
     /// para que las reglas se cumplan aunque no se llegue desde el controlador (por ejemplo, desde las pruebas).
