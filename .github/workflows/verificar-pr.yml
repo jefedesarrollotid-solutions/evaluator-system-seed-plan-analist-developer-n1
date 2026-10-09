@@ -1,0 +1,125 @@
+# Verificación automática de cada Pull Request de un postulante.
+# Corre con permisos de solo lectura: sirve para que el evaluador vea de inmediato
+# si la solución compila, si las pruebas pasan y qué devuelve la consulta SQL.
+# No califica: el puntaje lo asigna el evaluador con la rúbrica.
+name: Verificar PR del postulante
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  SOLUCION: SemillaTickets/SemillaTickets.sln
+
+jobs:
+  compilar-y-probar:
+    name: Compilar y ejecutar pruebas
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restaurar
+        run: dotnet restore "$SOLUCION"
+
+      - name: Compilar
+        run: dotnet build "$SOLUCION" --no-restore --configuration Release
+
+      - name: Ejecutar pruebas
+        id: pruebas
+        run: |
+          dotnet test "$SOLUCION" --no-build --configuration Release --logger "trx;LogFileName=resultado.trx" --results-directory resultados-pruebas | tee salida-pruebas.txt
+          echo "### Pruebas unitarias" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          grep -E "Passed!|Failed!|Total tests|Correctas|Con error" salida-pruebas.txt >> "$GITHUB_STEP_SUMMARY" || true
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Resumen de la entrega (commits, archivos, señales)
+        if: always()
+        run: |
+          BASE="${{ github.event.pull_request.base.sha }}"
+          HEAD="${{ github.event.pull_request.head.sha }}"
+          if [ -z "$BASE" ]; then BASE=$(git rev-parse origin/main); HEAD=$(git rev-parse HEAD); fi
+          {
+            echo "### Commits del postulante ($(git rev-list --count $BASE..$HEAD))"
+            echo '```'
+            git log --format='%h  %ad  %an  %s' --date=format:'%Y-%m-%d %H:%M' $BASE..$HEAD
+            echo '```'
+            echo "### Archivos cambiados"
+            echo '```'
+            git diff --stat $BASE..$HEAD
+            echo '```'
+            echo "### Señales rápidas (orientativas, no son el puntaje)"
+            W=SemillaTickets/src/SemillaTickets.Web
+            T=SemillaTickets/tests/SemillaTickets.Tests
+            ok() { if [ "$1" = "1" ]; then echo "- ✅ $2"; else echo "- ❌ $2"; fi; }
+            [ -f PR.md ] && ok 1 "PR.md existe en la raíz" || ok 0 "PR.md NO existe en la raíz"
+            [ -f $T/EjemploTests.cs ] && git diff --quiet $BASE..$HEAD -- $T/EjemploTests.cs && ok 1 "EjemploTests.cs intacto" || ok 0 "EjemploTests.cs borrado o modificado"
+            grep -rq "SaveChanges" $W --include=*.cs && ok 1 "T1: llama a SaveChanges" || ok 0 "T1: no se encontró SaveChanges"
+            grep -q "AsNoTracking" $W/Controllers/TicketsController.cs && ok 0 "T1: AsNoTracking sigue en el controlador" || ok 1 "T1: AsNoTracking ya no está en el controlador"
+            grep -rqE "\[Required|\[StringLength|\[MaxLength|\[MinLength|\[RegularExpression" $W/Models && ok 1 "T1: Data Annotations en el modelo" || ok 0 "T1: sin Data Annotations en el modelo"
+            grep -q "ModelState.IsValid" $W/Controllers/TicketsController.cs && ok 1 "T1: revisa ModelState.IsValid" || ok 0 "T1: no revisa ModelState.IsValid"
+            grep -q "asp-validation-for" $W/Views/Tickets/Edit.cshtml && ok 1 "T1: mensajes de validación en la vista" || ok 0 "T1: sin asp-validation-for en Edit.cshtml"
+            grep -rqE "AddScoped<|AddTransient<|AddSingleton<" $W/Program.cs && ok 1 "T2: servicio registrado en Program.cs" || ok 0 "T2: no se registró ningún servicio en Program.cs"
+            grep -q "AppDbContext" $W/Controllers/TicketsController.cs && ok 0 "T2: el controlador sigue usando AppDbContext" || ok 1 "T2: el controlador ya no usa AppDbContext"
+            grep -rqE "interface I[A-Za-z]*Service" $W --include=*.cs && ok 1 "T2: existe una interfaz de servicio" || ok 0 "T2: no hay interfaz de servicio"
+            grep -rq "OrderByDescending" $W --include=*.cs && ok 1 "T3a: ordena descendente" || ok 0 "T3a: no se encontró OrderByDescending"
+            grep -qiE "name=\"estado\"|asp-for=\"Estado\"|name=\"prioridad\"" $W/Views/Tickets/Index.cshtml && ok 1 "T3a: controles de filtro en Index" || ok 0 "T3a: sin controles de filtro en Index"
+            grep -rqE "fetch\(|\\\$\.ajax|\\\$\.post|XMLHttpRequest" $W/Views $W/wwwroot/js && ok 1 "T3b: llamada Ajax en la vista o site.js" || ok 0 "T3b: no se encontró fetch/\$.ajax"
+            grep -rqE "Json\(|JsonResult|Ok\(new" $W/Controllers && ok 1 "T3b: acción que devuelve JSON" || ok 0 "T3b: no hay acción que devuelva JSON"
+            [ -s SemillaTickets/sql/reporte.sql ] && grep -qi "group by" SemillaTickets/sql/reporte.sql && ok 1 "T4: reporte.sql con GROUP BY" || ok 0 "T4: reporte.sql vacío o sin GROUP BY"
+            N=$(ls $T/*.cs 2>/dev/null | grep -vc EjemploTests.cs); [ "$N" -ge 1 ] && ok 1 "T5: $N archivo(s) de pruebas nuevos" || ok 0 "T5: sin archivos de pruebas nuevos"
+            grep -qE "FromSqlRaw\(.*\+" $W/Controllers/TicketsController.cs $W/Services/*.cs 2>/dev/null && ok 0 "Bonus A: FromSqlRaw con concatenación sigue presente" || ok 1 "Bonus A: ya no hay FromSqlRaw concatenado"
+            grep -q "TotalHours" $W/Helpers/SlaHelper.cs && ok 1 "Bonus B: usa TotalHours" || ok 0 "Bonus B: sigue usando .Hours"
+            grep -q "Crítica" $W/Helpers/SlaHelper.cs && ok 0 "Bonus B: sigue comparando con \"Crítica\" (con tilde)" || ok 1 "Bonus B: ya no compara con \"Crítica\""
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  consulta-sql:
+    name: Ejecutar sql/reporte.sql sobre los datos semilla
+    runs-on: ubuntu-latest
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: "Semilla!Prueba2026"
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'Semilla!Prueba2026' -C -Q 'SELECT 1' || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 12
+          --health-start-period 20s
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cargar datos semilla y ejecutar la consulta del postulante
+        run: |
+          ID="${{ job.services.sqlserver.id }}"
+          SQLCMD="/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P Semilla!Prueba2026 -C"
+          docker exec "$ID" $SQLCMD -Q "IF DB_ID('SemillaTickets') IS NULL CREATE DATABASE SemillaTickets"
+          docker cp .github/scripts/datos-semilla.sql "$ID":/tmp/datos-semilla.sql
+          docker cp SemillaTickets/sql/reporte.sql "$ID":/tmp/reporte.sql
+          docker exec "$ID" $SQLCMD -d SemillaTickets -i /tmp/datos-semilla.sql
+          {
+            echo "### Resultado de sql/reporte.sql con los 7 tickets semilla"
+            echo '```'
+            if [ -s SemillaTickets/sql/reporte.sql ]; then
+              docker exec "$ID" $SQLCMD -d SemillaTickets -i /tmp/reporte.sql -W -s "|" 2>&1 || echo "(la consulta devolvió error)"
+            else
+              echo "(reporte.sql está vacío)"
+            fi
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
