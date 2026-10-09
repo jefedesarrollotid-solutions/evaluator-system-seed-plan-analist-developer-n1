@@ -50,9 +50,17 @@ public class TicketsController : Controller
     }
 
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public IActionResult Edit(int id, Ticket form)
     {
-        var ticket = _db.Tickets.AsNoTracking().FirstOrDefault(t => t.Id == id);
+        if (!ModelState.IsValid)
+        {
+            // Se devuelve la misma vista con el formulario para mostrar los errores de validación.
+            return View(form);
+        }
+
+        // Se carga la entidad con seguimiento de cambios (sin AsNoTracking) para que EF detecte las modificaciones.
+        var ticket = _db.Tickets.Find(id);
         if (ticket == null)
         {
             return NotFound();
@@ -61,6 +69,9 @@ public class TicketsController : Controller
         ticket.Titulo = form.Titulo;
         ticket.Descripcion = form.Descripcion;
         ticket.Prioridad = form.Prioridad;
+
+        // Sin SaveChanges las modificaciones nunca llegaban a la base de datos.
+        _db.SaveChanges();
 
         return RedirectToAction(nameof(Index));
     }
