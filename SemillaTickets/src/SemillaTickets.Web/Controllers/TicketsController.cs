@@ -6,6 +6,8 @@ using SemillaTickets.Web.Models;
 
 namespace SemillaTickets.Web.Controllers;
 
+
+
 public class TicketsController : Controller
 {
     private readonly AppDbContext _db;
