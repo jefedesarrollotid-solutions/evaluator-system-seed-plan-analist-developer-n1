@@ -1,5 +1,4 @@
 using System.ComponentModel.DataAnnotations;
-using Microsoft.EntityFrameworkCore;
 using SemillaTickets.Web.Data;
 using SemillaTickets.Web.Models;
 
@@ -20,8 +19,9 @@ public class TicketService : ITicketService
 
         if (!string.IsNullOrWhiteSpace(buscar))
         {
-            consulta = _db.Tickets
-                .FromSqlRaw("SELECT * FROM Tickets WHERE Titulo LIKE '%" + buscar + "%'");
+            // LINQ se traduce a un LIKE con parámetro: el texto del usuario nunca se concatena en el SQL.
+            var texto = buscar.Trim();
+            consulta = consulta.Where(t => t.Titulo.Contains(texto));
         }
 
         if (!string.IsNullOrWhiteSpace(estado))

@@ -209,4 +209,30 @@ public class TicketServiceTests
         Assert.Equal(2, lista.Count);
         Assert.All(lista, t => Assert.Equal(Estados.Abierto, t.Estado));
     }
+
+    [Fact]
+    public void Listar_PorTitulo_DevuelveSoloLosQueContienenElTexto()
+    {
+        var servicio = CrearServicioConTickets(nameof(Listar_PorTitulo_DevuelveSoloLosQueContienenElTexto),
+            new Ticket { Id = 1, Titulo = "Error al emitir boleta", FechaCreacion = Ahora },
+            new Ticket { Id = 2, Titulo = "Lentitud en búsqueda", FechaCreacion = Ahora },
+            new Ticket { Id = 3, Titulo = "Error intermitente al iniciar sesión", FechaCreacion = Ahora });
+
+        var lista = servicio.Listar("Error", null, null);
+
+        Assert.Equal(new[] { 1, 3 }, lista.Select(t => t.Id).OrderBy(id => id));
+    }
+
+    [Fact]
+    public void Listar_ConComillaSimpleEnLaBusqueda_NoFallaNiDevuelveTodo()
+    {
+        // Con la consulta concatenada original este texto rompía el SQL (o permitía inyectar condiciones).
+        var servicio = CrearServicioConTickets(nameof(Listar_ConComillaSimpleEnLaBusqueda_NoFallaNiDevuelveTodo),
+            new Ticket { Id = 1, Titulo = "Error al emitir boleta", FechaCreacion = Ahora },
+            new Ticket { Id = 2, Titulo = "Lentitud en búsqueda", FechaCreacion = Ahora });
+
+        var lista = servicio.Listar("' OR '1'='1", null, null);
+
+        Assert.Empty(lista);
+    }
 }
