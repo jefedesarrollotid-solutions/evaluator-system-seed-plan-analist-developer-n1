@@ -70,6 +70,19 @@ No necesitas permisos sobre este repositorio: trabajas en una copia tuya.
 Haz todo esto **antes** de la hora de inicio. Si algo no funciona, escribe al evaluador con el mensaje
 de error completo.
 
+### Si `dotnet test` o `dotnet run` fallan con "Una directiva de Control de aplicaciones bloqueó este archivo" (0x800711C7)
+
+Es **Smart App Control** de Windows 11, que bloquea las DLL compiladas en tu propia máquina porque no
+están firmadas. No es un error del proyecto. Para desactivarlo:
+
+1. Abre **Configuración → Privacidad y seguridad → Seguridad de Windows → Control de aplicaciones y navegador**.
+2. Entra en **Configuración de Control inteligente de aplicaciones** y marca **Desactivado**.
+3. Vuelve a ejecutar `dotnet build` y `dotnet test`. No hace falta reiniciar.
+
+Microsoft indica que esta función debe desactivarse en equipos de desarrollo. Una vez desactivada no
+puede volver a activarse sin reinstalar Windows, así que hazlo solo si trabajas con esta máquina como
+equipo de desarrollo (el error se repetirá con cualquier proyecto .NET que compiles).
+
 ## 3. El proyecto
 
 Es una aplicación **ASP.NET Core MVC** para registrar tickets de incidencias, con **SQL Server LocalDB** y
