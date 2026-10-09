@@ -14,15 +14,29 @@ public class TicketService : ITicketService
         _db = db;
     }
 
-    public List<Ticket> Listar(string? buscar)
+    public List<Ticket> Listar(string? buscar, string? estado, string? prioridad)
     {
-        if (string.IsNullOrEmpty(buscar))
+        IQueryable<Ticket> consulta = _db.Tickets;
+
+        if (!string.IsNullOrWhiteSpace(buscar))
         {
-            return _db.Tickets.ToList();
+            consulta = _db.Tickets
+                .FromSqlRaw("SELECT * FROM Tickets WHERE Titulo LIKE '%" + buscar + "%'");
         }
 
-        return _db.Tickets
-            .FromSqlRaw("SELECT * FROM Tickets WHERE Titulo LIKE '%" + buscar + "%'")
+        if (!string.IsNullOrWhiteSpace(estado))
+        {
+            consulta = consulta.Where(t => t.Estado == estado);
+        }
+
+        if (!string.IsNullOrWhiteSpace(prioridad))
+        {
+            consulta = consulta.Where(t => t.Prioridad == prioridad);
+        }
+
+        return consulta
+            .OrderByDescending(t => t.FechaCreacion)
+            .ThenByDescending(t => t.Id)
             .ToList();
     }
 

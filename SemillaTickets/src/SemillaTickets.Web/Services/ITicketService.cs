@@ -8,8 +8,11 @@ namespace SemillaTickets.Web.Services;
 /// </summary>
 public interface ITicketService
 {
-    /// <summary>Lista los tickets, filtrando opcionalmente por texto en el título.</summary>
-    List<Ticket> Listar(string? buscar);
+    /// <summary>
+    /// Lista los tickets del más reciente al más antiguo.
+    /// Los filtros son opcionales y combinables: texto en el título, estado y prioridad.
+    /// </summary>
+    List<Ticket> Listar(string? buscar, string? estado, string? prioridad);
 
     /// <summary>Devuelve el ticket con ese Id, o null si no existe.</summary>
     Ticket? Obtener(int id);

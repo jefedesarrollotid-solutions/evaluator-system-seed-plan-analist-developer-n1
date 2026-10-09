@@ -1,4 +1,5 @@
-@model List<Ticket>
+@using SemillaTickets.Web.Helpers
+@model TicketsIndexViewModel
 @{
     ViewData["Title"] = "Tickets";
 }
@@ -7,10 +8,29 @@
 
 <form method="get" class="row g-2 mb-3">
     <div class="col-md-4">
-        <input type="text" name="buscar" value="@(Context.Request.Query["buscar"])" class="form-control" placeholder="Buscar por título" />
+        <input asp-for="Buscar" class="form-control" placeholder="Buscar por título" />
+    </div>
+    <div class="col-md-3">
+        <select asp-for="Estado" class="form-select">
+            <option value="">Todos los estados</option>
+            @foreach (var e in Estados.Todos)
+            {
+                <option value="@e" selected="@(e == Model.Estado)">@e</option>
+            }
+        </select>
+    </div>
+    <div class="col-md-3">
+        <select asp-for="Prioridad" class="form-select">
+            <option value="">Todas las prioridades</option>
+            @foreach (var p in Prioridades.Todas)
+            {
+                <option value="@p" selected="@(p == Model.Prioridad)">@p</option>
+            }
+        </select>
     </div>
     <div class="col-auto">
-        <button type="submit" class="btn btn-outline-primary">Buscar</button>
+        <button type="submit" class="btn btn-outline-primary">Filtrar</button>
+        <a asp-action="Index" class="btn btn-link">Limpiar</a>
     </div>
 </form>
 
@@ -29,7 +49,13 @@
         </tr>
     </thead>
     <tbody>
-        @foreach (var t in Model)
+        @if (Model.Tickets.Count == 0)
+        {
+            <tr>
+                <td colspan="9" class="text-center text-muted">No hay tickets que coincidan con los filtros.</td>
+            </tr>
+        }
+        @foreach (var t in Model.Tickets)
         {
             <tr>
                 <td>@t.Id</td>
@@ -39,7 +65,7 @@
                 <td>@(t.Responsable ?? "—")</td>
                 <td>@t.FechaCreacion.ToString("dd/MM/yyyy HH:mm")</td>
                 <td>@(t.FechaCierre?.ToString("dd/MM/yyyy HH:mm") ?? "—")</td>
-                <td>@(((bool?)ViewData[$"sla_{t.Id}"] == true) ? "Sí" : "No")</td>
+                <td>@(SlaHelper.VenceSla(t, Model.Ahora) ? "Sí" : "No")</td>
                 <td><a asp-action="Edit" asp-route-id="@t.Id" class="btn btn-sm btn-outline-secondary">Editar</a></td>
             </tr>
         }

@@ -1,6 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc;
-using SemillaTickets.Web.Helpers;
 using SemillaTickets.Web.Models;
 using SemillaTickets.Web.Services;
 
@@ -15,16 +14,18 @@ public class TicketsController : Controller
         _tickets = tickets;
     }
 
-    public IActionResult Index(string? buscar)
+    public IActionResult Index(string? buscar, string? estado, string? prioridad)
     {
-        var tickets = _tickets.Listar(buscar);
-
-        foreach (var t in tickets)
+        var modelo = new TicketsIndexViewModel
         {
-            ViewData[$"sla_{t.Id}"] = SlaHelper.VenceSla(t, DateTime.Now);
-        }
+            Buscar = buscar,
+            Estado = estado,
+            Prioridad = prioridad,
+            Ahora = DateTime.Now,
+            Tickets = _tickets.Listar(buscar, estado, prioridad)
+        };
 
-        return View(tickets);
+        return View(modelo);
     }
 
     public IActionResult Edit(int id)
