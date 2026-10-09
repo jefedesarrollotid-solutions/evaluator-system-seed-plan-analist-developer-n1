@@ -1,0 +1,47 @@
+@model List<Ticket>
+@{
+    ViewData["Title"] = "Tickets";
+}
+
+<h1 class="h4 mb-3">Tickets de incidencias</h1>
+
+<form method="get" class="row g-2 mb-3">
+    <div class="col-md-4">
+        <input type="text" name="buscar" value="@(Context.Request.Query["buscar"])" class="form-control" placeholder="Buscar por título" />
+    </div>
+    <div class="col-auto">
+        <button type="submit" class="btn btn-outline-primary">Buscar</button>
+    </div>
+</form>
+
+<table class="table table-sm table-hover align-middle">
+    <thead class="table-light">
+        <tr>
+            <th>#</th>
+            <th>Título</th>
+            <th>Prioridad</th>
+            <th>Estado</th>
+            <th>Responsable</th>
+            <th>Creado</th>
+            <th>Cierre</th>
+            <th>SLA vencido</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var t in Model)
+        {
+            <tr>
+                <td>@t.Id</td>
+                <td>@t.Titulo</td>
+                <td>@t.Prioridad</td>
+                <td>@t.Estado</td>
+                <td>@(t.Responsable ?? "—")</td>
+                <td>@t.FechaCreacion.ToString("dd/MM/yyyy HH:mm")</td>
+                <td>@(t.FechaCierre?.ToString("dd/MM/yyyy HH:mm") ?? "—")</td>
+                <td>@(((bool?)ViewData[$"sla_{t.Id}"] == true) ? "Sí" : "No")</td>
+                <td><a asp-action="Edit" asp-route-id="@t.Id" class="btn btn-sm btn-outline-secondary">Editar</a></td>
+            </tr>
+        }
+    </tbody>
+</table>
