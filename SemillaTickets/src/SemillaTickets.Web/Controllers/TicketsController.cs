@@ -1,34 +1,23 @@
+using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using SemillaTickets.Web.Data;
 using SemillaTickets.Web.Helpers;
 using SemillaTickets.Web.Models;
+using SemillaTickets.Web.Services;
 
 namespace SemillaTickets.Web.Controllers;
 
 public class TicketsController : Controller
 {
-    private readonly AppDbContext _db;
+    private readonly ITicketService _tickets;
 
-    public TicketsController(AppDbContext db)
+    public TicketsController(ITicketService tickets)
     {
-        _db = db;
+        _tickets = tickets;
     }
 
     public IActionResult Index(string? buscar)
     {
-        List<Ticket> tickets;
-
-        if (string.IsNullOrEmpty(buscar))
-        {
-            tickets = _db.Tickets.ToList();
-        }
-        else
-        {
-            tickets = _db.Tickets
-                .FromSqlRaw("SELECT * FROM Tickets WHERE Titulo LIKE '%" + buscar + "%'")
-                .ToList();
-        }
+        var tickets = _tickets.Listar(buscar);
 
         foreach (var t in tickets)
         {
@@ -40,7 +29,7 @@ public class TicketsController : Controller
 
     public IActionResult Edit(int id)
     {
-        var ticket = _db.Tickets.Find(id);
+        var ticket = _tickets.Obtener(id);
         if (ticket == null)
         {
             return NotFound();
@@ -55,23 +44,23 @@ public class TicketsController : Controller
     {
         if (!ModelState.IsValid)
         {
-            // Se devuelve la misma vista con el formulario para mostrar los errores de validación.
             return View(form);
         }
 
-        // Se carga la entidad con seguimiento de cambios (sin AsNoTracking) para que EF detecte las modificaciones.
-        var ticket = _db.Tickets.Find(id);
-        if (ticket == null)
+        try
         {
-            return NotFound();
+            var ticket = _tickets.Actualizar(id, form);
+            if (ticket == null)
+            {
+                return NotFound();
+            }
         }
-
-        ticket.Titulo = form.Titulo;
-        ticket.Descripcion = form.Descripcion;
-        ticket.Prioridad = form.Prioridad;
-
-        // Sin SaveChanges las modificaciones nunca llegaban a la base de datos.
-        _db.SaveChanges();
+        catch (ValidationException ex)
+        {
+            // Segunda barrera: si el servicio rechaza los datos, el error se muestra en la pantalla de edición.
+            ModelState.AddModelError(string.Empty, ex.Message);
+            return View(form);
+        }
 
         return RedirectToAction(nameof(Index));
     }
