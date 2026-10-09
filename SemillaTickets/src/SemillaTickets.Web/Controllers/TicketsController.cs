@@ -22,7 +22,7 @@ public class TicketsController : Controller
         if (string.IsNullOrEmpty(buscar))
         {
             tickets = _db.Tickets.ToList();
-        }
+        } 
         else
         {
             tickets = _db.Tickets
@@ -61,7 +61,14 @@ public class TicketsController : Controller
         ticket.Titulo = form.Titulo;
         ticket.Descripcion = form.Descripcion;
         ticket.Prioridad = form.Prioridad;
+        ticket.Estado = form.Estado;
+        ticket.Responsable = form.Responsable;
+        ticket.FechaCreacion = form.FechaCreacion;
+        ticket.FechaCierre = form.FechaCierre;
 
         return RedirectToAction(nameof(Index));
     }
+
+    
+
 }
