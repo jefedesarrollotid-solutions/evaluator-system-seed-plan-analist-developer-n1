@@ -1,46 +1,37 @@
+using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using SemillaTickets.Web.Data;
 using SemillaTickets.Web.Helpers;
 using SemillaTickets.Web.Models;
+using SemillaTickets.Web.Services;
 
 namespace SemillaTickets.Web.Controllers;
 
 public class TicketsController : Controller
 {
-    private readonly AppDbContext _db;
+    private readonly ITicketService _tickets;
 
-    public TicketsController(AppDbContext db)
+    public TicketsController(ITicketService tickets)
     {
-        _db = db;
+        _tickets = tickets;
     }
 
-    public IActionResult Index(string? buscar)
+    public IActionResult Index(string? buscar, string? estado, string? prioridad)
     {
-        List<Ticket> tickets;
-
-        if (string.IsNullOrEmpty(buscar))
+        var modelo = new TicketsIndexViewModel
         {
-            tickets = _db.Tickets.ToList();
-        }
-        else
-        {
-            tickets = _db.Tickets
-                .FromSqlRaw("SELECT * FROM Tickets WHERE Titulo LIKE '%" + buscar + "%'")
-                .ToList();
-        }
+            Buscar = buscar,
+            Estado = estado,
+            Prioridad = prioridad,
+            Ahora = DateTime.Now,
+            Tickets = _tickets.Listar(buscar, estado, prioridad)
+        };
 
-        foreach (var t in tickets)
-        {
-            ViewData[$"sla_{t.Id}"] = SlaHelper.VenceSla(t, DateTime.Now);
-        }
-
-        return View(tickets);
+        return View(modelo);
     }
 
     public IActionResult Edit(int id)
     {
-        var ticket = _db.Tickets.Find(id);
+        var ticket = _tickets.Obtener(id);
         if (ticket == null)
         {
             return NotFound();
@@ -50,18 +41,62 @@ public class TicketsController : Controller
     }
 
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public IActionResult Edit(int id, Ticket form)
     {
-        var ticket = _db.Tickets.AsNoTracking().FirstOrDefault(t => t.Id == id);
-        if (ticket == null)
+        if (!ModelState.IsValid)
         {
-            return NotFound();
+            return View(form);
         }
 
-        ticket.Titulo = form.Titulo;
-        ticket.Descripcion = form.Descripcion;
-        ticket.Prioridad = form.Prioridad;
+        try
+        {
+            var ticket = _tickets.Actualizar(id, form);
+            if (ticket == null)
+            {
+                return NotFound();
+            }
+        }
+        catch (ValidationException ex)
+        {
+            // Segunda barrera: si el servicio rechaza los datos, el error se muestra en la pantalla de edición.
+            ModelState.AddModelError(string.Empty, ex.Message);
+            return View(form);
+        }
 
         return RedirectToAction(nameof(Index));
+    }
+
+    /// <summary>
+    /// Cambia el estado de un ticket. Se llama por Ajax desde el listado y devuelve JSON.
+    /// </summary>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public IActionResult CambiarEstado(int id, string estado)
+    {
+        try
+        {
+            var ahora = DateTime.Now;
+            var ticket = _tickets.CambiarEstado(id, estado, ahora);
+            if (ticket == null)
+            {
+                return NotFound(new { error = "El ticket no existe." });
+            }
+
+            return Json(new
+            {
+                estado = ticket.Estado,
+                fechaCierre = ticket.FechaCierre?.ToString("dd/MM/yyyy HH:mm"),
+                slaVencido = SlaHelper.VenceSla(ticket, ahora)
+            });
+        }
+        catch (ValidationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 }
