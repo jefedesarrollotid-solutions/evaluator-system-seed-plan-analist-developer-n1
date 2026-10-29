@@ -4,6 +4,7 @@ using SemillaTickets.Web.Data;
 using SemillaTickets.Web.Helpers;
 using SemillaTickets.Web.Models;
 
+
 namespace SemillaTickets.Web.Controllers;
 
 public class TicketsController : Controller
@@ -49,6 +50,7 @@ public class TicketsController : Controller
         return View(ticket);
     }
 
+//Metodo POST esta fallando, posiblemente no esta conectado con la vista o en su defecto no esta incluyendo bien las variables
     [HttpPost]
     public IActionResult Edit(int id, Ticket form)
     {
@@ -57,7 +59,7 @@ public class TicketsController : Controller
         {
             return NotFound();
         }
-
+        
         ticket.Titulo = form.Titulo;
         ticket.Descripcion = form.Descripcion;
         ticket.Prioridad = form.Prioridad;
