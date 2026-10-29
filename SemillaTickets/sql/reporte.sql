@@ -11,9 +11,14 @@ FROM Tickets
 GROUP BY Prioridad
 ORDER BY Prioridad
 
+	-- WHEN CASE 'Critica' THEN 1
+	-- WHEN CASE 'Alta' THEN 1
+	-- WHEN CASE 'Media' THEN 1
+	-- WHEN CASE 'Baja' THEN 1
+
 	WHEN CASE 'Critica' THEN 1
-	WHEN CASE 'Alta' THEN 1
-	WHEN CASE 'Media' THEN 1
-	WHEN CASE 'Baja' THEN 1
+	WHEN CASE 'Alta' THEN 2
+	WHEN CASE 'Media' THEN 3
+	WHEN CASE 'Baja' THEN 4
 
 	END;
